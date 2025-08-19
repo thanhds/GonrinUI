@@ -21,7 +21,13 @@
 		data, //datalist
 		index = -1,
         input,
-        widgetTemplate = '<div class="checkbox-option"><input type="checkbox" name=""><span class="control-label"></span></div>',
+        // widgetTemplate = `<div class="custom-control custom-checkbox">
+        //     <input type="checkbox" class="custom-control-input" id="checklist" >
+        //     <label class="custom-control-label strikethrough" for="checklist">
+        //         Khi đẻ có bị ngạt không?
+        //     </label>
+        // </div>`,
+        widgetTemplate = '<div><input type="checkbox" name="" class="custom-control-input"><label class="custom-control-label strikethrough" for="checklist"></label></div>',
         //itemTemplate =  '<li class="checkbox-option"><input type="radio" name=""><span class="control-label"></span></li>',
         widget = false,
         dataSourceType,
@@ -33,7 +39,12 @@
         renderData = function(){
 			var name = gonrin.uniqueId("checkbox_");
 			var $check = widget.find("input[type=checkbox]");
-			$check.attr("name", name);
+            $check.attr("name", name);
+            $check.attr("id", name);
+            if((options.text != null) && (options.text != null)){
+                widget.find("label").html(options.text).attr("for",name);
+
+            }
 			$.each(data, function (idx, item) {
 				if (typeof item === 'object') {
 					dataSourceType = 'object';
@@ -251,17 +262,17 @@
             var inputGroupSpan;
             var parentEl = element.parent();
             
-            if(parentEl.is('div') && parentEl.hasClass('input-group') && parentEl.hasClass('checkbox-group')){
+            if(parentEl.is('div') && parentEl.hasClass('custom-control') && parentEl.hasClass('custom-checkbox')){
             	inputGroupSpan = parentEl;
             }else{
-            	element.wrap( '<div class="input-group checkbox-group"></div>' );
+            	element.wrap( '<div class="custom-control custom-checkbox"></div>' );
                 inputGroupSpan = element.parent();
             }
             
-            var widgetEl = element.nextAll('ul:first');
-            if(widgetEl.length > 0 ){
-            	widgetEl.remove();
-            }
+            // var widgetEl = element.nextAll('ul:first');
+            // if(widgetEl.length > 0 ){
+            // 	widgetEl.remove();
+            // }
             
             element.css("display", "none");
         } else {
@@ -310,6 +321,7 @@
     	checkedField: null,
         valueField: null,
         cssClassField: null,
+        textField:null,
         /*dataSource: The data source of the widget which is used to display a list of values. 
          * Can be a JavaScript object which represents a valid data source configuration, a JavaScript array 
          * or an existing kendo.data.DataSource instance.*/

@@ -45,16 +45,17 @@
 	var Grid = function (element, options) {
 		var gonrin = window.gonrin;
 		var grobject = {},
+		other_data = null,
 		paginationOptions = {
         	serverPaging: false,
         	page: 1,
-        	pageSize: 10,
+        	pageSize: 15,
         	//totalPages: null,
         	//virtualTotalPages:null,
         	totalRows: null,
             pageLinks: 5,
             showGotoPage: false,
-            showRowsPerPage: false,
+            showRowsPerPage: true,
             showRowsInfo: false,
             showRowsDefaultInfo: true,
             //disable_text_selection_in_navpane: true
@@ -89,7 +90,7 @@
 		    command_edit_label: "Edit",
 		    command_cancel_label: "Cancel",
 		    
-		    validate_error_message: "Error",
+		    validate_message: "Error",
 		    validate_success_message: "Successfull",
 		},
 		selectedItems = [],
@@ -213,7 +214,11 @@
             return prefix + pluginContainerId;
         },
         columnIsVisible = function(column) {
-            var visible = "visible";
+			var visible = "visible";
+			if ( column.hasOwnProperty(visible) && typeof column[visible] === "function"){
+				var result = column[visible]();
+				return result;
+			}
             return !column.hasOwnProperty(visible) || (column.hasOwnProperty(visible) && column[visible] === true);
         },
         findSortable = function(column) {
@@ -381,7 +386,9 @@
             tblHtml += '</thead>';
 
             tblHtml += '<tbody class="grid-data">';
-            tblHtml += '<tbody>';
+            tblHtml += '</tbody>';
+			tblHtml += '<tfoot> class="grid-foot">';
+            tblHtml += '</tfoot>';
             elemTable.html(tblHtml);
 	        
             var gridHeader = elemTable.find('thead > tr.grid-header');
@@ -418,7 +425,7 @@
                     	thcol.css("width", options.fields[i].width)
                     };
                     if(options.fields[i].hasOwnProperty("headerClass")){
-                    	thcol.addClass(options.fields[i].hasOwnProperty("headerClass"))
+                    	thcol.addClass(options.fields[i].headerClass)
                     };
                     gridHeader.append(thcol);
                 }
@@ -454,22 +461,11 @@
 									tpl = gonrin.template(options.fields[i].template.call(options.context, dataToRender[row], {}));
 								}else{
 									tpl = gonrin.template(options.fields[i].template(dataToRender[row]));
-								}
-
-    							// tcol.html(tpl(dataToRender[row]));
-                                var html = tpl(dataToRender[row]);
-                                html = html.replace('<script>', '');
-                                html = html.replace('</script>', '');
-                                html = html.replace('script', '*****');
-    							tcol.html(html);
+								}    							
+								tcol.html(tpl(dataToRender[row]));
                     		}else{
                     			var tpl = gonrin.template(options.fields[i].template);
-    							// tcol.html(tpl(dataToRender[row]));
-                                var html = tpl(dataToRender[row]);
-                                html = html.replace('<script>', '');
-                                html = html.replace('</script>', '');
-                                html = html.replace('script', '*****');
-    							tcol.html(html);
+    							tcol.html(tpl(dataToRender[row]));
                     		}
 							
 						}
@@ -519,11 +515,24 @@
 											}
 											if(!!command.class){
 												 if (typeof command.class === "function") {
-                                                     button.addClass(command.class({rowData: dataToRender[row]}));
+													let classTxt = '';
+													if(options.context){
+														classTxt = command.class.call(options.context, {rowData:dataToRender[row]}, command.args||{});
+													}else{
+														classTxt = command.action({rowData:dataToRender[row]},command.args||{});
+													}
+                                                    //  button.addClass(command.class({rowData: dataToRender[row]}));
+													 button.addClass(classTxt);
                                                  }
                                                  if (typeof command.class === "string") {
                                                      button.addClass(command.class);
                                                  }
+											}
+											if(!!command.customTitle){
+												button.attr("title",command.customTitle);
+											}
+											if(!!command.customMinWidth){
+												button.css("min-width",command.customMinWidth);
 											}
 										}
 									}
@@ -630,14 +639,14 @@
 								//tcol.text(dataToRender[row][options.fields[i].field]);
 								
 							}
-							tcol.text(value);
+							tcol.html(value);
 							
 							
 						}
                     	
                     	//class
                     	if(options.fields[i].hasOwnProperty("dataClass")){
-                    		tcol.addClass(options.fields[i].hasOwnProperty("dataClass"))
+                    		tcol.addClass(options.fields[i].dataClass)
                         };
                     	trow.append(tcol);
                     }
@@ -660,11 +669,13 @@
                     	showRowsInfo: options.pagination.showRowsInfo,
                     	virtualTotalPages:null,
                     	onChangePage: function(event){
+                    		//console.log("change page");
                     		options.pagination.page = event.page;
+							options.pagination.pageSize = event.pageSize;
                     		if(options.paginationMode === "server"){
                     			boundData();
                     		}else{
-                    			renderData(pagingClientData());
+                    			renderData(pagingData());
                     		}
                     		
                     		notifyEvent({
@@ -790,9 +801,11 @@
             		if(sortField){
             			if(sortField.direction === "asc"){
                 			sortField.direction = "desc";
-            			}else{
-            				sortField.direction = "asc";
-            			}
+            			}else if (sortField.direction === "desc"){
+            				sortField.direction = false;
+            			} else {
+							sortField.direction = "asc";
+						}
             			//Update other sortField
             			for(var j = 0; j < options.orderBy.length; j ++){
             				var field = options.orderBy[j];
@@ -840,10 +853,10 @@
             // update selected rows counter
             selectedRows("update_counter");
         },
-        pagingClientData = function(){
-			//serverPage
+        pagingData = function(){
+        	//serverPage
+        	
         	if(options.paginationMode  === "client"){
-				//options.pagination.page = options.pagination.page || 1;
         		if(filteredData.length == 0){
         			options.pagination.totalPages = 0;
         			options.pagination.page = 1;
@@ -863,7 +876,7 @@
         		
         		for (var i = startIndex; i < endIndex ; i++){
         			pagingData.push(filteredData[i]);
-				}
+        		}
         		return pagingData;
         	}
         	
@@ -960,6 +973,7 @@
         	dataSource = options["dataSource"];
         	if(typeof dataSource === "object"){
         		if(isBackBoneDataSource(dataSource)){
+        			//console.log('instance of collection view');
         			options.paginationMode = options.paginationMode || "server";
         			options.filterMode = options.filterMode || "server";
         			options.orderByMode = options.orderByMode || "server";
@@ -992,7 +1006,7 @@
         			//var url = collection.url + "?page=" + page + "&results_per_page=" + pageSize + (query? "&q=" + JSON.stringify(query): "");
         			var url = collection.url;
         			if(options.paginationMode === "server"){
-                        var extra_params = options.extraParams || {};
+						var extra_params = options.extraParams || {};
                         let extra_params_string = '';
                         for (const key in extra_params) {
                             if (Object.hasOwnProperty.call(extra_params, key)) {
@@ -1001,7 +1015,7 @@
                             }
                         }
         				url = url + "?page=" + page + "&results_per_page=" + pageSize + (query? "&q=" + JSON.stringify(query): "");
-                        if (extra_params_string.length > 0){
+						if (extra_params_string.length > 0){
                             url = url + extra_params_string;
                         }
         			}else{
@@ -1010,45 +1024,48 @@
         			
         			collection.fetch({
         				url: url,
-                        success: function (objs) {
+						success: function (objs) {
                         	//update paging;
                         	options.pagination.page = collection.page;
                         	//options.pagination.pageSize = collection.num_rows;
                         	options.pagination.totalPages = collection.totalPages;
                         	options.pagination.totalRows = collection.numRows;
+							options.other_data = collection.other_data;
                         	data.splice(0,data.length);
                         	collection.each(function(model) {
                         		data.push(model.attributes);
 							});
                         	
                         	genDataUUID();
-							filterData();
+                        	filterData();
 							if (options.paginationMode === "client"){
-								renderData(pagingClientData());
-							}
-							else {
+								renderData(pagingData());
+							} else {
 								renderData(filteredData);
-							}								
-                    		
+							// console.log("options.numRows=====",options.pagination.totalRows);
+							}
                         },
                         error:function(collection, response, options){
                         	var filter_error;
+							let resp_json = null;
                             var errMsg = "ERROR: " + language.error_load_data;
 							try{
-								errMsg = response.responseJSON.error_message;
+								errMsg = response.responseJSON.message;
+								resp_json = response.responseJSON
 							}catch(e){
 
 							}
 							if(!errMsg){
 								errMsg = "ERROR: " + language.error_load_data
 							}
-
                             element.html('<span style="color: red;">' + errMsg + '</span>');
                             
                             notifyEvent({
                             	type:"griderror",
                             	errorCode: "SERVER_ERROR", 
-                            	errorDescription: errMsg
+                            	errorDescription: errMsg,
+								response: resp_json,
+								status: response.status
                             });
                             
                         },
@@ -1058,7 +1075,7 @@
         			genDataUUID();
         			filterData();
         			sortData();
-        			renderData(pagingClientData());
+        			renderData(pagingData());
         		}
         		
         	}
@@ -1073,6 +1090,15 @@
             } else {
                 throw new Error('Cannot apply to non input, select element');
             }
+			//start process cache currentpage
+			// var myStorage = window.sessionStorage;
+			// if (!!myStorage){
+			// 	var current_page = myStorage.getItem(options["dataSource"].url+"_current_page");
+			// 	if (!!current_page && current_page >0){
+			// 		options.pagination.page = current_page;
+			// 	}
+			// }
+			//end process cache currentpage
             selectedItems = options.selectedItems || [];
             if(!options.primaryField) {
             	selectedItems = [];
@@ -1208,6 +1234,12 @@
                     element.find("#" + selectedRowsId).text(options.selectedItems.length);
                     break;
                 case "selected_index":
+                	if(options.selectionMode == "multiple" && typeof options.selectedItems === 'string') {
+                		try{
+                			options.selectedItems = JSON.parse(options.selectedItems);
+						}catch(e){
+						}
+                	};
                 	for (var idx = 0 ; idx < options.selectedItems.length; idx ++){
                 		if ((!!options.primaryField) && (options.primaryField.length > 0)){
                 			if(row_data[options.primaryField] === options.selectedItems[idx][options.primaryField])
@@ -1223,6 +1255,12 @@
                 	//return $.inArray(row_data, options.selectedItems);
                     break;
                 case "add_id":
+                	if(options.selectionMode == "multiple" && typeof options.selectedItems === 'string') {
+                		try{
+                			options.selectedItems = JSON.parse(options.selectedItems);
+						}catch(e){
+						}
+                	};
                 	options.selectedItems.push(row_data);
                     break;
                 case "remove_id":
@@ -1247,8 +1285,8 @@
 
         },
         filterData = function(query, mode){
-			//check Server Filter
-			if(!query){
+        	//check Server Filter
+        	if(!query){
 				query = options.filters;
 			}
 			if (!mode){
@@ -1260,11 +1298,10 @@
         		filteredData = data
         	}
         },
-        setDataSource = function(data){
+		setDataSource = function(data){
         	options["dataSource"] = data;
         	boundData();
         };
-        
         /********************************************************************************
         *
         * Public API functions
@@ -1295,21 +1332,27 @@
         
         grobject.filter = function(query, extraParams){
         	options.filters = query;
-            options.extraParams = extraParams;
+			options.extraParams = extraParams;
         	options.pagination.page = 1;
         	boundData();
-		};
-		
-		grobject.clientFilter = function(query, mode="client"){
+        	//sortData();
+        	//renderData(pagingData());
+        };
+        grobject.clientFilter = function(query, mode="client"){
         	//options.filters = query;
 			options.pagination.page = 1;
 			filterData(query, mode);
 			sortData();
         	renderData(pagingClientData());
         };
-        
         grobject.changePage = function(page){
         	options.pagination.page = page;
+			//start process cache currentpage
+			// var myStorage = window.sessionStorage;
+			// if (!!myStorage){
+			// 	var current_page = myStorage.setItem(options["dataSource"].url+"_current_page", page);
+			// }
+			//end process cache currentpage
         	boundData();
         };
         
@@ -1317,14 +1360,12 @@
         grobject.boundData = boundData;
         
         grobject.selectedRows = selectedRows;
-        
         grobject.getSelectedItems = function(){
         	//return selectedRows("")
         	return removeDataUUID(options.selectedItems);
         };
         
         grobject.setDataSource = setDataSource;
-        
         grobject.applyRowSelections = function(){
         	applyRowSelections();
         }
@@ -1377,7 +1418,7 @@
     	context: null,
     	dataSource: null,
         primaryField: "",
-        
+        other_data:null,
         selectionMode: "single", // "multiple", "single", false
         selectedItems: [],
         /**
@@ -1394,7 +1435,8 @@
         filters: null,
         orderBy: null,
         tools: null,
-        showRowNumbers: false,
+		showRowNumbers: false,
+		num_results:0,
         
         // events -- deprecated
         //onCellClick: function() {},
