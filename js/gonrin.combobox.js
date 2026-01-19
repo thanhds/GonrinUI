@@ -19,14 +19,16 @@
 		var grobject = {},
 		value,
 		text,
-		data, //datalist
+		data = [], //datalist
 		index = -1,
 		textElement = false,
 		groupElement = false,
 		unset = true,
         input,
-        menuTemplate = '<ul class="dropdown-menu" style="overflow-y:scroll; width: 100%;"></ul>',
-        itemTemplate =  '<li class="dropdown-item"><a href="javascript:void(0)"></a></li>',
+        // menuTemplate = '<ul class="dropdown-menu" style="overflow-y:scroll; width: 100%"></ul>',
+        menuTemplate = '<ul class="dropdown-menu" style="width: 100%; min-width: 240px; transform-origin: center bottom 0px;"></ul>',
+        itemTemplate =  '<li><a class="dropdown-item" href="javascript:void(0)"></a></li>',
+        textElementTemplate = '<div class="gr-input--suffix"><input class="gr-input__inner form-control" type="text" autocomplete="off" placeholder="Select"><span class="gr-input__suffix"><span class="gr-input__suffix-inner"><i class="gr-select__caret gr-input__icon gr-icon-arrow-up"></i></span></span></div>',
         component = false,
         helpmsg = false,
         widget = false,
@@ -70,7 +72,111 @@
          * Private functions
          *
          ********************************************************************************/
+        isBackBoneDataSource = function(source){
+        	var key, _i, _len, _ref;
+            _ref = ["fetch"];
+            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+              key = _ref[_i];
+              if (!source[key]) {
+            	  return false;
+              }
+            }
+            return true;
+        },
+        boundData = function(){
+        	if($.isArray(options.dataSource)){
+				data = options.dataSource;
+				renderData();
+			} else if (isBackBoneDataSource(options.dataSource)){
+				options.paginationMode = options.paginationMode || "server";
+    			options.filterMode = options.filterMode || "server";
+    			options.orderByMode = options.orderByMode || "server";
+    			
+    			var collection = options.dataSource;
+    			//var pageSize = options.pagination.pageSize;
+    			//var page = options.pagination.page > 0 ? options.pagination.page : 1;
+    			var pageSize = 10;
+    			var page = 1;
+    			//or filter
+    			var query = null;
+    			if ((!!options.filters) && (options.filterMode === "server")){
+    				query = query || {};
+    				query['filters'] = options.filters;
+    			}
+    			
+    			if ((!!options.orderBy) && (options.orderByMode === "server")){
+    				query = query || {};
+    				query['order_by'] = [];
+    				for(var k = 0; k < options.orderBy.length; k++){
+    					if(options.orderBy[k].direction){
+    						query['order_by'].push({field:options.orderBy[k].field, direction: options.orderBy[k].direction});
+    					}
+    					
+    				}
+    			}
+    			
+    			//order_by
+    			//query["order_by"] = {"field": "name", "direction": "asc"}
+    			
+    			//end filter
+    			//var url = collection.url + "?page=" + page + "&results_per_page=" + pageSize + (query? "&q=" + JSON.stringify(query): "");
+    			var url = collection.url;
+    			if(options.paginationMode === "server"){
+    				url = url + "?page=" + page + "&results_per_page=" + pageSize + (query? "&q=" + JSON.stringify(query): "");
+    			}else{
+    				url = url + (query? "?q=" + JSON.stringify(query): "");
+    			}
+    			
+    			collection.fetch({
+    				url: url,
+                    success: function (objs) {
+                    	//update paging;
+//                    	options.pagination.page = collection.page;
+//                    	options.pagination.totalPages = collection.totalPages;
+//                    	options.pagination.totalRows = collection.numRows;
+                    	
+                    	//var data = [];
+                    	
+                    	data.splice(0,data.length);
+                    	collection.each(function(model) {
+                    		data.push(model.toJSON());
+						});
+                    	
+                    	
+                    	//genDataUUID();
+                    	//filterData();
+                		renderData();
+                    },
+                    error:function(){
+//                    	var filter_error;
+//                        var errMsg = "ERROR: " + language.error_load_data;
+//                        element.html('<span style="color: red;">' + errMsg + '</span>');
+//                        
+//                        notifyEvent({
+//                        	type:"griderror",
+//                        	errorCode: "SERVER_ERROR", 
+//                        	errorDescription: errMsg
+//                        });
+                        
+                    },
+                });
+				
+			} else if($.isPlainObject(options.dataSource)){
+				//var data = [];
+				$.each(options.dataSource, function(idx, value){
+					var obj = {};
+					obj[options.valueField] = idx;
+					obj[options.textField] = value;
+					data.push(obj);
+				});
+				
+            	//genDataUUID();
+            	//filterData();
+        		renderData();
+			}
+        },
         renderData = function(){
+			
 			if($.isArray(data) && data.length > 0){
 				$.each(data, function (idx, item) {
 					var $item = $(itemTemplate);
@@ -116,9 +222,18 @@
 					}
 				});
 			}
+			notifyEvent({
+                type: 'render.gonrin'
+            });
+			
 			return grobject;
 		},
         setupWidget = function () {
+
+            console.log("setupWidget");
+			if(!!widget){
+				widget.empty();
+			}
 			if (!!options.dataSource) {
 				//var menu = $(menuTemplate);
 				widget = $(menuTemplate);
@@ -130,23 +245,16 @@
 					component.before(widget);
 				}
 				
-				if($.isArray(options.dataSource)){
-					data = options.dataSource;
-					renderData();
-				}
-				if($.isPlainObject(options.dataSource)){
-					if(options.auto_bind){
-						console.log("bind to Ajax datasource");
-					}
-					//getdataSource json from HTTP
-					//setup_data();
-				}
-				
+				boundData();
 				//setup width and height
 				
-				widget.css("width", (options.width !== null) ? options.width : "100%"); 
-				widget.css("height", (options.height !== null) ? options.height : "auto"); 
-				widget.css("max-height", "200px"); 
+                widget.css("width", (options.width !== null) ? options.width : "100%"); 
+                var widget_height = (options.height !== null) ? options.height : "auto";
+                widget.css("height", widget_height); 
+                if (widget_height !== "auto"){
+                    widget.css("overflow-y", "scroll"); 
+                }
+				
 				widget.hide();
             }
 			return grobject;
@@ -264,10 +372,9 @@
         	}
         },
         setMultiIndex = function(idx, oldval){
-        	
         	if(data && (data.length > 0) && (data.length > idx) && (idx > -1)){
         		var item = data[idx];
-        		var oldvalue = value.slice(0);
+        		var oldvalue = value.slice(idx);
         		if(!!oldval){
         			oldvalue = oldval;
         		}
@@ -291,7 +398,7 @@
         			if($.isArray(value)){
         				var found = -1;
         				for(var k = 0; k < value.length; k++){
-        					if(value[k] == val){
+        					if(value[k] === val){
         						found = k;
         						break;
         					}
@@ -316,11 +423,10 @@
         		}else{
         			itemidx.addClass("active");
         			//text add
-        			if($.isArray(value)){
+        			if($.isArray(value) && !($.inArray(val, value) > -1)){
         				value.push(val);
         			}
         			//value add
-        			
         			if(textElement){
             			text = (!!text) && (text.length > 0)? text + "," + txt : txt;
                 		textElement.val(text);
@@ -357,11 +463,10 @@
             
             widget.on('mousedown', false);
             widget.show();
-            textElement.off("focus");
-            subscribeEvents();
-//            if (options.focusOnShow && !textElement.is(':focus')) {
-//                textElement.focus();
-//            }
+            
+            if (options.focusOnShow && !textElement.is(':focus')) {
+                textElement.focus();
+            }
             
             notifyEvent({
                 type: 'show.gonrin'
@@ -374,9 +479,6 @@
             }
         	//$(window).off('resize', place);
             widget.off('mousedown', false);
-            if (textElement.is(':focus')) {
-                textElement.blur();
-            }
             widget.hide();
             
             notifyEvent({
@@ -549,25 +651,24 @@
         },
         
         keydown = function(e) {
-        	
             var key = e.keyCode;
             _lastkey = key;
             clearTimeout(_typing_timeout);
             _typing_timeout = null;
             
             if (key != keyMap.tab && !move(e)) {
-            	if(options.filter === false){
+            	if(options.allowTextInput !== false){
+            		if (options.enableSearch !== false){
+            			triggerSearch();
+            		}
+            	}else{
             		return false;
             	}
-                triggerSearch();
              }
         },
         
         change = function (e) {
             var val = $(e.target).val().trim();
-            /*var parsedDate = val ? parseInputDate(val) : null;
-            setValue(parsedDate);*/
-        	
         	//TODO: trigger search
             e.stopImmediatePropagation();
             return false;
@@ -605,6 +706,10 @@
                     if (_prev !== searchvalue) {
                         _prev = searchvalue;
                         search(searchvalue);
+                        notifyEvent({
+                            type: 'search.gonrin',
+                            value: searchvalue
+                        });
                     }
                     _typing_timeout = null;
                 }, options.delay);
@@ -617,7 +722,8 @@
                     'change': change,
                     'blur': options.debug ? '' : hideWidget,
                     'keydown': keydown,
-                    'focus':  showWidget,
+                    // 'focus':  showWidget,
+                    'click':  toggle,
                 });
         	}
             if (component) {
@@ -663,20 +769,20 @@
         	
         },
         setState = function(state, message){
-        	if(state === null){
-        		groupElement.removeClass("has-warning has-error has-success");
-        		helpmsg.html("");
-        		helpmsg.hide();
-        	}else if((state === "warning") || (state === "error") || (state === "success")){
-    			groupElement.addClass("has-" + state);
-    			if(!!message){
-        			helpmsg.html(message);
-            		helpmsg.show();
-            	}else{
-            		helpmsg.html("");
-            		helpmsg.hide();
-            	}
-        	}
+        	// if(state === null){
+        	// 	groupElement.removeClass("has-warning has-error has-success");
+        	// 	helpmsg.html("");
+        	// 	helpmsg.hide();
+        	// }else if((state === "warning") || (state === "error") || (state === "success")){
+    		// 	groupElement.addClass("has-" + state);
+    		// 	if(!!message){
+        	// 		helpmsg.html(message);
+            // 		helpmsg.show();
+            // 	}else{
+            // 		helpmsg.html("");
+            // 		helpmsg.hide();
+            // 	}
+        	// }
         	
         },
         unsubscribeEvents = function () {
@@ -737,7 +843,9 @@
             unsubscribeEvents();
             widget.remove();
             component.remove();
-            helpmsg.remove();
+            if(!!helpmsg){
+                helpmsg.remove();
+            }
             textElement.remove();
             element.removeData('gonrin');
         };
@@ -793,6 +901,9 @@
             if (textElement){
             	textElement.prop('readonly', true);
             }
+            if (input){
+            	input.prop('readonly', true);
+            }
             return grobject;
         };
         
@@ -817,53 +928,46 @@
             var parentEl = element.parent();
             
             
-            if(parentEl.is('div') && parentEl.hasClass('input-group') && parentEl.hasClass('combobox-control')){
+            // if(parentEl.is('div') && parentEl.hasClass('input-group') && parentEl.hasClass('gr-combobox')){
+            if(parentEl.is('div') && parentEl.hasClass('gr-combobox')){
             	inputGroupEl = parentEl;
             }else{
-                var class_el = "";//input.attr("class");
-            	element.wrap( '<div class="input-group combobox-control '+class_el+'"></div>' );
+            	element.wrap( '<div class="gr-combobox"></div>' );
                 inputGroupEl = element.parent();
             }
             
-            
-            var parentInputGroupEl = inputGroupEl.parent();
-            if(parentInputGroupEl.is('div') && parentInputGroupEl.hasClass('combobox-group')){
-            	groupElement = parentInputGroupEl;
-            }else{
-                var class_el = "";//parentInputGroupEl.attr("class");
-            	inputGroupEl.wrap( '<div class="combobox-group '+class_el+'"></div>' );
-            	groupElement = inputGroupEl.parent();
-            }
-            
             //component
-            var componentButton = element.nextAll('span:first');
+            // var componentButton = element.nextAll('span:first');
             
-            if((componentButton.length == 0 ) || !($(componentButton[0]).hasClass('input-group-addon'))){
-            	componentButton = $('<span class="input-group-addon dropdown-toggle" data-dropdown="dropdown">').html('<span class="caret"></span><span class="glyphicon glyphicon-remove" style="display:none;"></span>');
-                inputGroupEl.append(componentButton);
-            }
+            // if((componentButton.length == 0 ) || !($(componentButton[0]).hasClass('input-group-addon'))){
+            // 	componentButton = $('<span class="input-group-addon dropdown-toggle" data-dropdown="dropdown">').html('<span class="caret"></span><span class="glyphicon glyphicon-remove" style="display:none;"></span>');
+            //     inputGroupEl.append(componentButton);
+            // }
             
-            component = componentButton;
+            // component = componentButton;
+            
             
             var widgetEl = element.nextAll('ul:first');
             if(widgetEl.length > 0 ){
             	widgetEl.remove();
             }
             
-            var prevEl = element.prev('input');
-            if((prevEl.length == 0 ) || !($(prevEl[0]).hasClass('form-control'))){
-            	prevEl = $('<input class="form-control" type="text">');
+            var prevEl = element.prev('.gr-input--suffix');
+            if((prevEl.length == 0 )){
+            	prevEl = $(textElementTemplate);
                 element.before(prevEl);
             }
-            textElement = prevEl;
+            textElement = prevEl.find("input.gr-input__inner");
+
+            component = prevEl.find("span.gr-input__suffix");
             
-            var helpEl = inputGroupEl.next('div');
-            if((helpEl.length == 0 ) || !($(helpEl[0]).hasClass('help-block'))){
-            	helpEl = $('<div class="help-block">');
-            	inputGroupEl.after(helpEl);
-            }
-            helpmsg = helpEl;
-            helpmsg.hide();
+            // var helpEl = inputGroupEl.next('div');
+            // if((helpEl.length == 0 ) || !($(helpEl[0]).hasClass('help-block'))){
+            // 	helpEl = $('<div class="help-block">');
+            // 	inputGroupEl.after(helpEl);
+            // }
+            // helpmsg = helpEl;
+            // helpmsg.hide();
             element.css("display", "none");
         } else {
             throw new Error('Cannot apply to non input, select element');
@@ -881,9 +985,6 @@
 				value = [];
 			}
         }
-        if(!!options.groupSize){
-        	inputGroupEl.addClass("input-group-" + options.groupSize);
-        }
         
     	setupWidget();
     	
@@ -898,7 +999,11 @@
 			if (options.textField === null){
 				options.textField = options.valueField;
 			}
-    	}
+        }
+        
+        if(textElement && (options.allowTextInput === false)){
+            textElement.attr("readonly", "readonly");
+        }
     	
     	//if((options.index) && (options.index > -1)){
     	//	grobject.setSingleIndex(options.index);
@@ -919,7 +1024,6 @@
 /*****************************************/
 	
 	$.fn.combobox = function (options) {
-		
         return this.each(function () {
             var $this = $(this);
             options.refresh = options.refresh || false;
@@ -935,6 +1039,7 @@
     };
 
     $.fn.combobox.defaults = {
+    	type: null,
     	/*autobind: Controls whether to bind the widget to the data source on initialization.*/
     	autobind: true,
     	/*cascadeFrom: Use it to set the Id of the parent ComboBox widget.*/
@@ -946,7 +1051,7 @@
     	readonly: false,
     	debug: false,
     	/*The delay in milliseconds between a keystroke and when the widget displays the popup.*/
-    	delay: 100,
+    	delay: 1000,
     	textField: null,
         valueField: null,
         /*dataSource: The data source of the widget which is used to display a list of values. 
@@ -957,13 +1062,15 @@
         //index: -1,
         /*filter: The filtering method used to determine the suggestions for the current value. Filtration is turned off by default. The supported filter values are startswith, endswith and contains.*/
         filter: false,
-        height: "auto",//"auto",
+        height: "auto",
         /*If set to false case-sensitive search will be performed to find suggestions. The widget performs case-insensitive searching by default.*/
         ignoreCase: false,
         /*If set to true the widget will automatically use the first suggestion as its value.*/
         suggest: false,
         /*The minimum number of characters the user must type before a search is performed. Set to higher value than 1 if the search could match a lot of items.*/
         minLength: 1,
+        enableSearch: false,
+        allowTextInput: false,
         /*Specifies a static HTML content, which will be rendered as a header of the popup element.*/
         headerTemplate: false,
         /*The template used to render the items. By default the widget displays only the text of the data item (configured via textField).*/

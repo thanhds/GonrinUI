@@ -28,7 +28,7 @@
 		text_element = false,
 		unset = true,
         input,
-        menu_template = '<input type="file" lang="vi" accept="file_extension|audio/*|video/*|image/*|media_type" id="fileUpload"/>',
+        menu_template = '<input type="file" accept="file_extension|audio/*|video/*|image/*|media_type" id="fileUpload"/>',
         
         component = false,
         widget = false,
@@ -149,9 +149,6 @@
 	                    //p    = self.create('p');
 	                    //t    = document.createTextNode('Image uploaded!');
 	                    element.val(imgobj.link);
-	                    if (component){
-	                    	component.find('.valid-feedback').html(imgobj.link).show();
-	                    }
 	                    notifyEvent({
 		                    type: 'change.gonrin',
 		                    value: imgobj,
@@ -164,12 +161,9 @@
         
         subscribeEvents = function () {
             if (component) {
-            	if (element.val()){
-                	component.find('.valid-feedback').html(element.val()).show();
-                }
-//            	var browserBtn  = component.find('.custom-file-label');
+            	var browserBtn  = component.find('button');
             	var fileUpl  = component.find('#fileUpload')[0];
-            	element.unbind('click').bind("click", function(){
+            	browserBtn.bind("click", function(){
             		$(fileUpl).trigger("click");
             	})
             	fileUpl.addEventListener('change', function (e) {
@@ -225,12 +219,12 @@
         if (element.is('input')) {
             input = element;
             value = input.val();
-            element.wrap( '<div class="custom-file"></div>');
+            element.wrap( '<span class="input-group"></span>');
             var inputGroupSpan = element.parent();
-            var componentButton = $('<label class="custom-file-label" >Chọn file tải lên</label><div class="valid-feedback"></div>');
+            var componentButton = $('<span class="input-group-btn">').html('<button class="btn btn-default" type="button">Browse...</button>');
             inputGroupSpan.append(componentButton);
-            component = inputGroupSpan;
-            element.addClass("custom-file-input");
+            component = componentButton;
+            element.addClass("form-control");
             
         } else {
             throw new Error('Cannot apply to non input element');

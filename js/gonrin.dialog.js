@@ -25,7 +25,7 @@
   // the base DOM structure needed to create a modal
   var templates = {
     dialog:
-      "<div class='modal' tabindex='-1' role='dialog'>" +
+      "<div class='bootbox modal' tabindex='-1' role='dialog'>" +
         "<div class='modal-dialog'>" +
           "<div class='modal-content'>" +
             "<div class='modal-body'><div class='bootbox-body'></div></div>" +
@@ -39,7 +39,7 @@
     footer:
       "<div class='modal-footer'></div>",
     closeButton:
-    	"<button type='button' class='close' data-dismiss='modal' aria-label='Close'><span aria-hidden='true'>&times;</span></button>",
+      "<button type='button' class='bootbox-close-button close' data-dismiss='modal' aria-hidden='true'>&times;</button>",
     form:
       "<form class='bootbox-form'></form>",
     inputs: {
@@ -566,11 +566,8 @@
 
   exports.dialog = function(options) {
     options = sanitize(options);
+	
     var dialog = $(templates.dialog);
-    if (options.template_custome && options.message){
-      dialog = options.message;
-    }
-    
     var innerDialog = dialog.find(".modal-dialog");
     
     var body = dialog.find(".modal-body");
@@ -588,7 +585,8 @@
 
     if ($.fn.modal === undefined) {
       throw new Error(
-        "$.fn.modal is not defined; please double check you have included the Bootstrap JavaScript library " +
+        "$.fn.modal is not defined; please double check you have included " +
+        "the Bootstrap JavaScript library. See http://getbootstrap.com/javascript/ " +
         "for more details."
       );
     }
@@ -602,55 +600,43 @@
       callbacks[key] = button.callback;
     });
 
-    if (!options.template_custome){
-      body.find(".bootbox-body").html(options.message);
-    }
-    
-    if (options.block_content){
-      dialog.attr("block-bind","content");
-    }
+    body.find(".bootbox-body").html(options.message);
 
     if (options.animate === true) {
       dialog.addClass("fade");
     }
 
     if (options.className) {
-      innerDialog.addClass(options.className);
+      dialog.addClass(options.className);
     }
-
 
     if (options.size === "large") {
       innerDialog.addClass("modal-lg");
-    }else if (options.size === "medium") {
-      innerDialog.addClass("modal-md");
     } else if (options.size === "small") {
       innerDialog.addClass("modal-sm");
     }
 
     if (options.title) {
-      if (!dialog.find(".modal-title")){
-        body.before(templates.header);
+      body.before(templates.header);
+    }
+
+    if (options.closeButton) {
+      var closeButton = $(templates.closeButton);
+
+      if (options.title) {
+        dialog.find(".modal-header").prepend(closeButton);
+      } else {
+        closeButton.css("margin-top", "-10px").prependTo(body);
       }
-      
+    }
+
+    if (options.title) {
       dialog.find(".modal-title").html(options.title);
     }
-
-    if (!options.template_custome && options.closeButton) {
-      var closeButton = $(templates.closeButton);
-      if (!closeButton){
-          body.prepend(closeButton);
-          closeButton.addClass("row px-3");
-      }
-    }
-
-    
 
     if (buttonStr.length) {
       body.after(templates.footer);
       dialog.find(".modal-footer").html(buttonStr);
-    } else if (options.buttonStr){
-      body.after(templates.footer);
-      dialog.find(".modal-footer").html(options.buttonStr);
     }
     
     if(options.width){
@@ -683,10 +669,10 @@
       }
     });
     */
-    //namdv comment for default focus button primary 30/09/2024
-    // dialog.on("shown.bs.modal", function() {
-    //   dialog.find(".btn-primary:first").focus();
-    // });
+
+    dialog.on("shown.bs.modal", function() {
+      dialog.find(".btn-primary:first").focus();
+    });
 
     /**
      * Bootbox event listeners; experimental and may not last
@@ -729,14 +715,13 @@
      * interaction with our dialog
      */
 
-    // @TODO: namdv comment for deny auto close popup
-    // dialog.on("click", ".modal-footer button", function(e) {
-    //   var callbackKey = $(this).data("bb-handler");
+    dialog.on("click", ".modal-footer button", function(e) {
+      var callbackKey = $(this).data("bb-handler");
 
-    //   processCallback(e, dialog, callbacks[callbackKey]);
-    // });
+      processCallback(e, dialog, callbacks[callbackKey]);
+    });
 
-    dialog.on("click", "button.close", function(e) {
+    dialog.on("click", ".bootbox-close-button", function(e) {
       // onEscape might be falsy but that's fine; the fact is
       // if the user has managed to click the close button we
       // have to close the dialog, callback or not
@@ -970,12 +955,7 @@
       OK      : "OK",
       CANCEL  : "取消",
       CONFIRM : "確認"
-    },
-    vi : {
-        OK      : "Đồng ý",
-        CANCEL  : "Hủy bỏ",
-        CONFIRM : "Xác nhận"
-      }
+    }
   };
 
   exports.addLocale = function(name, values) {
